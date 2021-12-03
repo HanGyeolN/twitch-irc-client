@@ -3,6 +3,8 @@
 #include <exception>
 #include <string>
 
+#define SEND_ERROR -1
+
 class IrcError : std::exception
 {
 private:

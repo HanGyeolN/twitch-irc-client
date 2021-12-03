@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include <iostream>
 
 static std::string		remember_to_buf(std::string &remember)
 {
@@ -41,12 +42,21 @@ int	read_until_crlf(int fd, char *buffer, int *len)
 	}
 	while (insert_idx < UTILS::BUFFER_SIZE)
 	{
+		std::cout << "1" << std::endl;
 		if (remember[fd].empty())
 		{
+			std::cout << "2" << std::endl;
 			if ((read_size = read(fd, buf + insert_idx, UTILS::BUFFER_SIZE - insert_idx)) == -1)
+			{
+				std::cout << "3" << std::endl;
 				break;
+			}
 			else if (read_size == 0)
+			{
+				std::cout << "4" << std::endl;
 				break;
+			}
+			std::cout << "5" << std::endl;
 			buf[insert_idx + read_size] = 0;
 		}
 		else

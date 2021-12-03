@@ -1,43 +1,49 @@
 #include "IrcClient.hpp"
+#include "IrcSocket.hpp"
+#include "utils.hpp"
 
-int g_socket_fd;
+IrcClient		*g_client; // 입력용 thread와 공유할 변수
 
-void	send_input()
+void	announce()
 {
-	int						send_res;
+	std::cout << "채널 참여: join #twitch_id" << std::endl;
+	std::cout << "채널 나가기: part #twitch_id" << std::endl;
+}
+
+void	input_thread()
+{
 	std::string		msg;
 
-	while (strcmp(msg.c_str(), "quit"))
+	while (true)
 	{
-		try {
-			getline(std::cin, msg);
-			std::cout << "msg send to " << g_socket_fd << " : " << msg << std::endl;
-			send_res = ::send(g_socket_fd, msg.c_str(), strlen(msg.c_str()), 0);
-			if (send_res == -1)
-				throw (IrcError("send return -1"));
-		} catch (IrcError e) {
-			std::cerr << e.what() << std::endl;
-		}
+		getline(std::cin, msg);
+		if (msg == "")
+			continue;
+		if (msg == "quit" || msg == "exit")
+			exit(0);
+		if (msg == "help")
+			announce();
+		g_client->send_to_server(msg);
 	}
 }
 
 int		main()
 {
-	int				fd;
-	IrcClient *client;
-
-	client = new IrcClient();
-	g_socket_fd = client->connect_socket();
-
-	std::thread		t1(send_input);
-
-	sleep(10);
-	std::cout << "sleep end" << std::endl;
-
-	client->receive_message();
-	delete client;
-
-	t1.join();
-
+	try
+	{
+		g_client = new IrcClient();
+		g_client->login_twitch();
+		announce();
+		std::thread	thread(input_thread);
+		while (true)
+		{
+			g_client->recv_from_server();
+		}
+		thread.join();
+	}
+	catch (IrcError const &e)
+	{
+		std::cerr << e.what() << std::endl;
+	}
 	return 0;
 }

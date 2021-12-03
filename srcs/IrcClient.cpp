@@ -1,8 +1,12 @@
 #include "IrcClient.hpp"
 #include "utils.hpp"
 
-IrcClient::IrcClient() : _socket_fd(0)
+/*
+	@brief connect to twitch server socket when construct client
+*/
+IrcClient::IrcClient()
 {
+	_socket = new IrcSocket();
 	std::cout << "IRC Client Constructed." << std::endl;
 }
 
@@ -11,78 +15,48 @@ IrcClient::~IrcClient()
 	std::cout << "IRC Client Destructed." << std::endl;
 }
 
-int		IrcClient::get_socket()
+/*
+	@brief 트위치 계정으로 채팅 서버에 로그인
+*/
+void	IrcClient::login_twitch()
 {
-	int		socket_fd;
+	std::string	id;
+	std::string	code;
 
-	socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (socket_fd <= 0)
-		throw (IrcError("socket create error"));
-	return (socket_fd);
+	std::cout << "twitch id: ";
+	std::cin >> id;
+	std::cout << "twitch oauth code(https://twitchapps.com/tmi): ";
+	std::cin >> code;
+	_socket->connect_to_twitch_irc_server();
+	code = "pass " + code;
+	id = "nick " + id;
+	send_to_server(code);
+	send_to_server(id);
 }
 
-void	IrcClient::set_twitch_irc_server_addr(struct sockaddr_in &twitch_server_addr)
+/*
+	@brief 채팅 서버로 메세지 전송
+	@detail 서버로 보내는 메세지의 끝은 "\n" 을 추가해서 알린다 (IRC RFC)
+*/
+void	IrcClient::send_to_server(const std::string &msg)
 {
-	memset(&twitch_server_addr, 0, sizeof(twitch_server_addr));
-	twitch_server_addr.sin_family = AF_INET;
-	twitch_server_addr.sin_port = htons(TWITCH_IRC_PORT);
-	twitch_server_addr.sin_addr.s_addr = inet_addr(TWITCH_IRC_IP);
+	return _socket->send_msg((msg + "\n").c_str());
 }
 
-void	IrcClient::connect_to_twitch_irc_server()
+/*
+	@brief 서버로 부터 메세지를 받아와서 출력한다.
+	@todo	코드 이해가 필요한 부분
+*/
+void	IrcClient::recv_from_server()
 {
-	int									connect_res;
-	struct sockaddr_in	twitch_server_addr;
+	std::string buffer = _socket->recv_msg();
+	std::string line;
+	std::istringstream iss(buffer);
 
-	set_twitch_irc_server_addr(twitch_server_addr);
-	std::cout << "port:" << twitch_server_addr.sin_port << std::endl;
-	std::cout << "addr:" << twitch_server_addr.sin_addr.s_addr << std::endl;
-	connect_res = connect(_socket_fd, (struct sockaddr *)&twitch_server_addr, sizeof(twitch_server_addr));
-	// return 이 올때까지 blocking 상태
-	if (connect_res == -1)
+	while (std::getline(iss, line))
 	{
-		throw (IrcError("twitch server connect error"));
+		if (line.find("\r") != std::string::npos)
+			line = line.substr(0, line.size() - 1);
+		std::cout << line << std::endl;
 	}
-	std::cout << "socket connected" << std::endl;
-}
-
-int		IrcClient::connect_socket()
-{
-	try
-	{
-		_socket_fd = this->get_socket();
-		this->connect_to_twitch_irc_server();
-	}
-	catch (IrcError const &e)
-	{
-		std::cerr << e.what() << std::endl;
-	}
-	return (_socket_fd);
-}
-
-int			IrcClient::send_message(const char *msg)
-{
-	int		send_res;
-
-	send_res = ::send(_socket_fd, msg, strlen(msg), 0);
-	std::cout << "SEND " << _socket_fd << " " << msg << std::endl;
-	if (send_res == -1)
-		throw (IrcError("send return -1"));
-	return (send_res);
-}
-
-int			IrcClient::receive_message()
-{
-	int		ret;
-	int		size;
-	char	buffer[100];
-
-	memset(buffer, 0, 100);
-	ret = 1;
-	while (ret)
-	{
-		ret = read_until_crlf(_socket_fd, buffer, &size);
-		std::cout << "buffer" << buffer << std::endl;
-	}
-	return (ret);
 }
